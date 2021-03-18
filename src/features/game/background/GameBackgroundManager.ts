@@ -59,4 +59,8 @@ export default class GameBackgroundManager {
   public getLocationAssetKey = (locId: LocationId) => {
     return GameGlobalAPI.getInstance().getGameMap().getLocationAtId(locId).assetKey;
   };
+
+  // public getCurrentBackground = () => {
+  //   return this.currentBackground;
+  // }
 }
