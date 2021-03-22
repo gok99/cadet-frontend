@@ -35,6 +35,7 @@ class GameMap {
   private boundingBoxes: Map<ItemId, BBoxProperty>;
   private characters: Map<ItemId, Character>;
   private actions: Map<ItemId, GameAction>;
+  private locationDetails: Map<LocationId, AssetKey>;
   private gameStartActions: ItemId[];
   private checkpointCompleteActions: ItemId[];
 
@@ -48,6 +49,7 @@ class GameMap {
     this.boundingBoxes = new Map<ItemId, BBoxProperty>();
     this.characters = new Map<ItemId, Character>();
     this.actions = new Map<ItemId, GameAction>();
+    this.locationDetails = new Map<LocationId, AssetKey>();
 
     this.gameStartActions = [];
     this.checkpointCompleteActions = [];
@@ -125,6 +127,14 @@ class GameMap {
     return this.soundAssets;
   }
 
+  public getLocationDetails(): Map<LocationId, AssetKey> {
+    return this.locationDetails;
+  }
+
+  public addLocationDetail(locId: LocationId, assetKey: AssetKey) {
+    this.locationDetails.set(locId, assetKey);
+  }
+
   public setItemInMap(gameItemType: GameItemType, itemId: string, item: any) {
     this[gameItemType].set(itemId, item);
   }
@@ -139,6 +149,9 @@ class GameMap {
 
   public getLocationAtId = (locId: LocationId) =>
     mandatory(this.locations.get(locId), `Location ${locId} was not found!`);
+
+  public getLocationDetailAtId = (locId: LocationId) =>
+    mandatory(this.locationDetails.get(locId), `Location ${locId} was not found!`);
 
   public getAssetByKey = (key: AssetKey) =>
     mandatory(this.mapAssets.get(key), `Asset ${key} not found!`);

@@ -337,15 +337,31 @@ class GameGlobalAPI {
   //    Animations   //
   /////////////////////
 
-  public startAnimation(assetKey: AssetKey, startFrame: number, frameRate: number) {
+  public startBackgroundAnimation(id: LocationId, startFrame: number, frameRate: number) {
+    const assetKey = this.getLocationDetailById(id);
     const startImage = this.getAssetByKey(assetKey);
     this.getGameManager()
       .getAnimationManager()
       .initiateAnimation(startImage, startFrame, frameRate);
   }
 
-  public stopAnimation(assetKey: AssetKey) {
+  public startObjectAnimation(id: ItemId, startFrame: number, frameRate: number) {
+    const asset = this.getObjectById(id);
+    const startImage = this.getAssetByKey(asset.assetKey);
+    this.getGameManager()
+      .getAnimationManager()
+      .initiateAnimation(startImage, startFrame, frameRate);
+  }
+
+  public stopBackgroundAnimation(id: LocationId) {
+    const assetKey = this.getLocationDetailById(id);
     const stopImage = this.getAssetByKey(assetKey);
+    this.getGameManager().getAnimationManager().stopAnimation(stopImage);
+  }
+
+  public stopObjectAnimation(id: ItemId) {
+    const asset = this.getObjectById(id);
+    const stopImage = this.getAssetByKey(asset.assetKey);
     this.getGameManager().getAnimationManager().stopAnimation(stopImage);
   }
 
@@ -462,6 +478,10 @@ class GameGlobalAPI {
   }
   public getAssetByKey(assetKey: AssetKey) {
     return this.getGameMap().getAssetByKey(assetKey);
+  }
+
+  public getLocationDetailById(locId: LocationId): AssetKey {
+    return mandatory(this.getGameMap().getLocationDetails().get(locId));
   }
 }
 

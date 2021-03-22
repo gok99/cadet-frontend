@@ -40,12 +40,27 @@ export default class GameActionExecuter {
       case GameActionType.ChangeBackground:
         globalAPI.renderBackgroundLayerContainer(actionParams.id);
         return;
-      case GameActionType.StartAnimation:
+      case GameActionType.StartBackgroundAnimation:
         // TODO param check
-        globalAPI.startAnimation(actionParams.id, actionParams.startFrame, actionParams.frameRate);
+        globalAPI.startBackgroundAnimation(
+          actionParams.id,
+          actionParams.startFrame,
+          actionParams.frameRate
+        );
         return;
-      case GameActionType.StopAnimation:
-        globalAPI.stopAnimation(actionParams.id);
+      case GameActionType.StartObjectAnimation:
+        // TODO param check
+        globalAPI.startObjectAnimation(
+          actionParams.id,
+          actionParams.startFrame,
+          actionParams.frameRate
+        );
+        return;
+      case GameActionType.StopBackgroundAnimation:
+        globalAPI.stopBackgroundAnimation(actionParams.id);
+        return;
+      case GameActionType.StopObjectAnimation:
+        globalAPI.stopObjectAnimation(actionParams.id);
         return;
       case GameActionType.PreviewLocation:
         globalAPI.renderBackgroundLayerContainer(actionParams.id);
@@ -118,8 +133,10 @@ export default class GameActionExecuter {
       case GameActionType.NavigateToAssessment:
       case GameActionType.PreviewLocation:
       case GameActionType.ChangeBackground:
-      case GameActionType.StartAnimation:
-      case GameActionType.StopAnimation:
+      case GameActionType.StartBackgroundAnimation:
+      case GameActionType.StartObjectAnimation:
+      case GameActionType.StopBackgroundAnimation:
+      case GameActionType.StopObjectAnimation:
       case GameActionType.ObtainCollectible:
       case GameActionType.CompleteObjective:
       case GameActionType.ShowDialogue:
