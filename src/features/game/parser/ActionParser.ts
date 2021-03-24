@@ -87,21 +87,25 @@ export default class ActionParser {
         Parser.validator.assertEntityType(GameEntityType.locations, actionParams[0], actionType);
         break;
       case GameActionType.StartBackgroundAnimation:
+        Parser.validator.assertEntityType(GameEntityType.locations, actionParams[0], actionType);
         actionParamObj.id = actionParams[0];
         actionParamObj.startFrame = +actionParams[1];
         actionParamObj.frameRate = +actionParams[2];
         actionParamObj.assetCategory = actionParams[3];
         break;
       case GameActionType.StartObjectAnimation:
+        Parser.validator.assertItemType(GameItemType.objects, actionParams[0], actionType);
         actionParamObj.id = actionParams[0];
         actionParamObj.startFrame = +actionParams[1];
         actionParamObj.frameRate = +actionParams[2];
         actionParamObj.assetCategory = actionParams[3];
         break;
       case GameActionType.StopBackgroundAnimation:
+        Parser.validator.assertEntityType(GameEntityType.locations, actionParams[0], actionType);
         actionParamObj.id = actionParams[0];
         break;
       case GameActionType.StopObjectAnimation:
+        Parser.validator.assertItemType(GameItemType.objects, actionParams[0], actionType);
         actionParamObj.id = actionParams[0];
         break;
       case GameActionType.ShowDialogue:
