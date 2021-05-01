@@ -67,7 +67,10 @@ export default class GameAnimationManager {
         GameGlobalAPI.getInstance().addItem(GameItemType.objects, currLoc, image.key);
         break;
       case AnimType.Background:
-        GameGlobalAPI.getInstance().renderBackgroundLayerContainer(image.path);
+        GameGlobalAPI.getInstance()
+          .getGameManager()
+          .getBackgroundManager()
+          .renderBackgroundLayerContainerFromKey(image.path);
         break;
     }
   }

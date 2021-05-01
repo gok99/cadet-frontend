@@ -23,6 +23,10 @@ export default class GameBackgroundManager {
     this.renderBackgroundImage(assetKey);
   }
 
+  public renderBackgroundLayerContainerFromKey(assetKey: AssetKey) {
+    this.renderBackgroundImage(assetKey);
+  }
+
   /**
    * Render the background with the image associated with the asset key.
    * The image will be resized (overflow) to fit the screen.

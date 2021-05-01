@@ -51,7 +51,6 @@ export default class GlowingImage {
       const imageAsset = animationManager.createImage(image, assetKey);
       switch (image?.type) {
         case AssetType.Sprite:
-          this.clickArea.setAlpha(0);
           animationManager.startAnimation(image);
           break;
         case AssetType.Image:
