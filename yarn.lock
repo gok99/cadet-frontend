@@ -8387,10 +8387,10 @@ klona@^2.0.4:
   resolved "https://registry.npmjs.org/klona/-/klona-2.0.5.tgz"
   integrity sha512-pJiBpiXMbt7dkzXe8Ghj/u4FfXOOa98fPW+bihOJ4SjnoijweJrNThJfd3ifXpXhREjpoF2mZVH1GfS9LV3kHQ==
 
-konva@^8.3.2:
-  version "8.3.2"
-  resolved "https://registry.npmjs.org/konva/-/konva-8.3.2.tgz"
-  integrity sha512-vWi51qFTFkEIp+HxMek1eH1fA1zFo0DPD3uqUez+v2gy/IfZF2eLu9DcEj7Exk532hxfHJi/2oZ0GQYHlhg/dQ==
+konva@^8.3.13:
+  version "8.3.13"
+  resolved "https://registry.yarnpkg.com/konva/-/konva-8.3.13.tgz#c1adc986ddf5dde4790c0ed47eef8d40a313232e"
+  integrity sha512-O5VxHfRfTj4PscTglQH1NimS8+CC5hQYLeB8YQstu8MN/i2L8GjA1T9d7xxzITF2TD5+xcIs5ei7en3cztbNXg==
 
 language-subtag-registry@~0.3.2:
   version "0.3.21"
