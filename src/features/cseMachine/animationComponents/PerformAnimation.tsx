@@ -44,7 +44,7 @@ export class PerformAnimation extends Animatable {
     /** Stash items that were between handler marker and top (now removed) */
     capturedStashItems: StashItemComponent[],
     private newControlItems: ControlItemComponent[],
-    private newStashItems: StashItemComponent[]
+    newStashItems: StashItemComponent[]
   ) {
     super();
 
