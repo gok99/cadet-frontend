@@ -159,7 +159,7 @@ export function* evalCodeSaga(
   context.runtime.debuggerOn =
     (actionType === WorkspaceActions.evalEditor.type ||
       actionType === InterpreterActions.debuggerResume.type) &&
-    context.chapter > 2;
+    (context.chapter > 2 || context.chapter === Chapter.DELIM_CONT);
   const isStoriesBlock = actionType === actions.evalStory.type || workspaceLocation === 'stories';
 
   function* getWorkspaceData() {
@@ -204,7 +204,8 @@ export function* evalCodeSaga(
   const { currentStep, cseIsActive, isFolderModeEnabled, needUpdateCse, stepLimit, substIsActive } =
     yield* getWorkspaceData();
 
-  const cseActiveAndCorrectChapter = context.chapter >= Chapter.SOURCE_3 && cseIsActive;
+  const cseActiveAndCorrectChapter =
+    (context.chapter >= Chapter.SOURCE_3 || context.chapter === Chapter.DELIM_CONT) && cseIsActive;
   if (cseActiveAndCorrectChapter) {
     context.executionMethod = 'cse-machine';
   }

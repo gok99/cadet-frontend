@@ -250,15 +250,18 @@ const sourceSubLanguages: Array<Pick<SALanguage, 'chapter' | 'variant'>> = [
   { chapter: Chapter.SOURCE_4, variant: Variant.DEFAULT },
   { chapter: Chapter.SOURCE_4, variant: Variant.TYPED },
   { chapter: Chapter.SOURCE_4, variant: Variant.NATIVE },
-  { chapter: Chapter.SOURCE_4, variant: Variant.EXPLICIT_CONTROL }
+  { chapter: Chapter.SOURCE_4, variant: Variant.EXPLICIT_CONTROL },
+
+  { chapter: Chapter.DELIM_CONT, variant: Variant.EXPLICIT_CONTROL }
 ];
 
 export const sourceLanguages: SALanguage[] = sourceSubLanguages.map(sublang => {
   const { chapter, variant } = sublang;
   const supportedFeatures: LanguageFeatures = {};
+  const isDelimCont = chapter === Chapter.DELIM_CONT;
 
   // Enable Data Visualizer for Source Chapter 2 and above
-  supportedFeatures.dataVisualizer = chapter >= Chapter.SOURCE_2;
+  supportedFeatures.dataVisualizer = chapter >= Chapter.SOURCE_2 || isDelimCont;
 
   // Enable Subst Visualizer only for default Source 1 & 2
   supportedFeatures.substVisualizer =
@@ -266,24 +269,29 @@ export const sourceLanguages: SALanguage[] = sourceSubLanguages.map(sublang => {
     (variant === Variant.DEFAULT || variant === Variant.NATIVE || variant === Variant.TYPED);
 
   // Enable CSE Machine for Source Chapter 3 and above
-  supportedFeatures.cseMachine = chapter >= Chapter.SOURCE_3;
+  supportedFeatures.cseMachine = chapter >= Chapter.SOURCE_3 || isDelimCont;
 
   // Local imports/exports require Source 2+ as Source 1 does not have lists.
-  supportedFeatures.multiFile = chapter >= Chapter.SOURCE_2;
+  supportedFeatures.multiFile = chapter >= Chapter.SOURCE_2 || isDelimCont;
 
   // Disable REPL for concurrent variants
   supportedFeatures.repl = true;
 
+  const displayName =
+    chapter === Chapter.DELIM_CONT
+      ? 'Source §4 Delim-Cont'
+      : `Source \xa7${chapter} ${variantDisplay.get(variant) ?? ''}`.trim();
+
   return {
     ...sublang,
-    displayName: `Source \xa7${chapter} ${variantDisplay.get(variant) ?? ''}`.trim(),
+    displayName,
     mainLanguage: SupportedLanguage.JAVASCRIPT,
     supports: supportedFeatures
   };
 });
 
 export const isSourceLanguage = (chapter: Chapter) =>
-  [Chapter.SOURCE_1, Chapter.SOURCE_2, Chapter.SOURCE_3, Chapter.SOURCE_4].includes(chapter);
+  [Chapter.SOURCE_1, Chapter.SOURCE_2, Chapter.SOURCE_3, Chapter.SOURCE_4, Chapter.DELIM_CONT].includes(chapter);
 
 export const ALL_LANGUAGES: readonly SALanguage[] = [
   ...sourceLanguages,
@@ -398,7 +406,7 @@ export const createDefaultWorkspace = (workspaceLocation: WorkspaceLocation): Wo
   tokenCount: 0,
   customNotification: '',
   sharedbConnected: false,
-  stepLimit: 1000,
+  stepLimit: -1,
   globals: [],
   isEditorAutorun: false,
   isRunning: false,
@@ -561,7 +569,7 @@ export const createDefaultStoriesEnv = (
   execTime: 1000,
   isRunning: false,
   output: [],
-  stepLimit: 1000,
+  stepLimit: -1,
   globals: [],
   usingSubst: false,
   debuggerContext: {} as DebuggerContext

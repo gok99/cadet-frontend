@@ -24,7 +24,8 @@ import {
   setUnhoveredStyle,
   truncateText
 } from '../CseMachineUtils';
-import { isContinuation } from '../utils/continuation';
+import { HandlerStashMarker, ResetStashMarker } from 'js-slang/dist/cse-machine/types';
+import { isContinuation, isDelimitedContinuation } from '../utils/continuation';
 import { ArrowFromStashItemComponent } from './arrows/ArrowFromStashItemComponent';
 import { ArrayValue } from './values/ArrayValue';
 import { ContValue } from './values/ContValue';
@@ -48,19 +49,23 @@ export class StashItemComponent extends Visible implements IHoverable {
   ) {
     super();
     const valToStashRep = (val: any): string => {
+      if (val instanceof ResetStashMarker) return 'reset \u2302';
+      if (val instanceof HandlerStashMarker) return `handler stash marker(#${val.id})`;
       return typeof val === 'string'
         ? `'${val}'`.trim()
-        : isContinuation(val)
-          ? 'continuation'
-          : isNonGlobalFn(val)
-            ? 'closure'
-            : isDataArray(val)
-              ? arrowTo
-                ? 'pair/array'
-                : JSON.stringify(val)
-              : isSourceObject(val)
-                ? val.toReplString()
-                : String(value);
+        : isDelimitedContinuation(val)
+          ? 'delim cont'
+          : isContinuation(val)
+            ? 'continuation'
+            : isNonGlobalFn(val)
+              ? 'closure'
+              : isDataArray(val)
+                ? arrowTo
+                  ? 'pair/array'
+                  : JSON.stringify(val)
+                : isSourceObject(val)
+                  ? val.toReplString()
+                  : String(value);
     };
     this.text = truncateText(
       valToStashRep(value),

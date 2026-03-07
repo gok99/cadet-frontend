@@ -6,7 +6,7 @@ import { Arrow, KonvaNodeComponent, Path, Rect, Text } from 'react-konva';
 import { CseAnimation } from '../../CseMachineAnimation';
 import { Config } from '../../CseMachineConfig';
 import { ControlStashConfig } from '../../CseMachineControlStashConfig';
-import { defaultStrokeColor, defaultTextColor } from '../../CseMachineUtils';
+import { defaultBackgroundColor, defaultStrokeColor, defaultTextColor } from '../../CseMachineUtils';
 import { Animatable, AnimatableTo, AnimationConfig } from './Animatable';
 import { lerp } from './AnimationUtils';
 
@@ -196,6 +196,7 @@ export class AnimatedRectComponent extends AnimationComponent<Konva.Rect, Konva.
   constructor(props: Konva.RectConfig) {
     const defaultProps = {
       stroke: defaultStrokeColor(),
+      fill: defaultBackgroundColor(),
       cornerRadius: ControlStashConfig.ControlItemCornerRadius
     };
     super(Rect, { ...defaultProps, ...props });

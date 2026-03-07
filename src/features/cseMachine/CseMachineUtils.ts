@@ -6,8 +6,11 @@ import {
   BinOpInstr,
   ControlItem,
   EnvInstr,
+  HandlerControlMarkerInstr,
   Instr,
   InstrType,
+  ObjLitInstr,
+  PerformInstr,
   UnOpInstr
 } from 'js-slang/dist/cse-machine/types';
 import { Chapter } from 'js-slang/dist/langs';
@@ -52,7 +55,7 @@ import {
   StreamFn,
   Unassigned
 } from './CseMachineTypes';
-import { isContinuation } from './utils/continuation';
+import { isContinuation, isDelimitedContinuation } from './utils/continuation';
 class AssertionError extends Error {
   constructor(msg?: string) {
     super(msg);
@@ -404,9 +407,14 @@ export function setDifference<T>(set1: Set<T>, set2: Set<T>) {
  */
 export function isMainReference(value: Value, reference: ReferenceType) {
   if (isContinuation(value.data)) {
+    if (isDelimitedContinuation(value.data)) {
+      // Delimited continuations don't have a single owning environment;
+      // use the first binding reference as the main reference.
+      return reference instanceof Binding && value.references.length === 0;
+    }
     return (
       reference instanceof Binding &&
-      isEnvEqual(reference.frame.environment, value.data.getEnv()[0])
+      isEnvEqual(reference.frame.environment, (value.data as any).getEnv()[0])
     );
   }
   if (isGlobalFn(value.data)) {
@@ -1012,6 +1020,67 @@ export function getControlItemComponent(
           unhighlightOnHover,
           topItem
         );
+      case InstrType.OBJECT_LITERAL: {
+        const objLitInstr = controlItem as ObjLitInstr;
+        return new ControlItemComponent(
+          `obj lit ${objLitInstr.keys.length}`,
+          `Create object with keys: ${objLitInstr.keys.join(', ')}`,
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      }
+      case InstrType.RESET_CONTROL_MARKER:
+        return new ControlItemComponent(
+          'reset mark',
+          'Delimiter marker for delimited continuations (reset boundary)',
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      case InstrType.ENV_STACK_RESTORE:
+        return new ControlItemComponent(
+          'env restore',
+          'Restore environment stack after continuation application',
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      case InstrType.HANDLER_CONTROL_MARKER: {
+        const handlerInstr = controlItem as HandlerControlMarkerInstr;
+        const ops = [...handlerInstr.handler.keys()].join(', ');
+        return new ControlItemComponent(
+          `handler control marker(#${handlerInstr.id}) handling ${ops}`,
+          `Handler control marker #${handlerInstr.id} handling: ${ops}`,
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      }
+      case InstrType.RUN_WITH_HANDLER:
+        return new ControlItemComponent(
+          'withHandle',
+          'Execute body with effect handler installed',
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      case InstrType.PERFORM: {
+        const performInstr = controlItem as PerformInstr;
+        return new ControlItemComponent(
+          `perform ${performInstr.op}`,
+          `Perform effect operation "${performInstr.op}"`,
+          stackHeight,
+          highlightOnHover,
+          unhighlightOnHover,
+          topItem
+        );
+      }
       default:
         return new ControlItemComponent(
           'INSTRUCTION',
@@ -1032,9 +1101,14 @@ export function getStashItemComponent(
   _chapter: Chapter
 ): StashItemComponent {
   let arrowTo: ArrayValue | FnValue | GlobalFnValue | ContValue | undefined;
-  if (isFunction(stashItem) || isDataArray(stashItem || isContinuation(stashItem))) {
+  if (isFunction(stashItem) || isDataArray(stashItem) || isContinuation(stashItem)) {
     if (isClosure(stashItem) || isDataArray(stashItem) || isContinuation(stashItem)) {
       arrowTo = Layout.values.get(stashItem.id) as ArrayValue | FnValue | ContValue;
+      // Create ContValue on-the-fly for continuations not yet in the layout
+      // (e.g. delimited continuations created by perform, which go directly to stash)
+      if (!arrowTo && isContinuation(stashItem)) {
+        arrowTo = ContValue.createForStash(stashItem, stackHeight);
+      }
     } else {
       arrowTo = Layout.values.get(stashItem) as FnValue | GlobalFnValue;
     }
@@ -1079,6 +1153,20 @@ export const isStashItemInDanger = (stashIndex: number): boolean => {
         return (
           Layout.stashComponent.stashItemComponents.length - stashIndex <=
           (controlItem as ArrLitInstr).arity
+        );
+      case InstrType.OBJECT_LITERAL:
+        return (
+          Layout.stashComponent.stashItemComponents.length - stashIndex <=
+          (controlItem as ObjLitInstr).keys.length
+        );
+      case InstrType.RUN_WITH_HANDLER:
+        // withHandle pops handler and body thunk from stash
+        return Layout.stashComponent.stashItemComponents.length - stashIndex <= 2;
+      case InstrType.PERFORM:
+        // perform pops operation name (and args) from stash
+        return (
+          Layout.stashComponent.stashItemComponents.length - stashIndex <=
+          (controlItem as PerformInstr).arity + 1
         );
     }
   }

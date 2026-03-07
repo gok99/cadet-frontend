@@ -94,7 +94,10 @@ const PlaygroundSaga = combineSagaHandlers({
       isSourceLanguage(playgroundSourceChapter) &&
       (newId === SideContentType.substVisualizer || newId === SideContentType.cseMachine)
     ) {
-      if (playgroundSourceChapter <= Chapter.SOURCE_2) {
+      if (
+        playgroundSourceChapter <= Chapter.SOURCE_2 &&
+        playgroundSourceChapter !== Chapter.DELIM_CONT
+      ) {
         yield put(WorkspaceActions.toggleUsingSubst(true, workspaceLocation));
       } else {
         yield put(WorkspaceActions.toggleUsingCse(true, workspaceLocation));

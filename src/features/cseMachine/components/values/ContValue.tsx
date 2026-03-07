@@ -14,6 +14,7 @@ import {
 
 import CseMachine from '../../CseMachine';
 import { Config, ShapeDefaultProps } from '../../CseMachineConfig';
+import { ControlStashConfig } from '../../CseMachineControlStashConfig';
 import { Layout } from '../../CseMachineLayout';
 import { IHoverable, ReferenceType } from '../../CseMachineTypes';
 import {
@@ -26,7 +27,7 @@ import {
   setHoveredCursor,
   setUnhoveredCursor
 } from '../../CseMachineUtils';
-import { Continuation } from '../../utils/continuation';
+import { Continuation, isDelimitedContinuation } from '../../utils/continuation';
 import { ArrowFromFn } from '../arrows/ArrowFromFn';
 import { Binding } from '../Binding';
 import { Frame } from '../Frame';
@@ -39,38 +40,73 @@ export class ContValue extends Value implements IHoverable {
   readonly innerRadius: number = Config.FnInnerRadius;
   readonly labelRef: RefObject<Label> = React.createRef();
 
-  readonly tooltip: string = 'continuation';
-  readonly tooltipWidth: number = getTextWidth(this.tooltip);
-  readonly exportTooltip: string = 'continuation';
-  readonly exportTooltipWidth: number = getTextWidth(this.exportTooltip);
+  readonly tooltip: string;
+  readonly tooltipWidth: number;
+  readonly exportTooltip: string;
+  readonly exportTooltipWidth: number;
 
   centerX: number;
   enclosingFrame?: Frame;
-  env: Environment;
-  control: Control;
-  stash: Stash;
+  env?: Environment;
+  control?: Control;
+  stash?: Stash;
   private _arrow: ArrowFromFn | undefined;
 
   constructor(
     /** underlying continuation */
-    readonly data: Continuation,
+    readonly data: any,
     /** what this value is being referenced by */
-    firstReference: ReferenceType
+    firstReference?: ReferenceType
   ) {
     super();
     Layout.memoizeValue(data, this);
+
+    const label = isDelimitedContinuation(data) ? 'delim cont' : 'continuation';
+    this.tooltip = label;
+    this.tooltipWidth = getTextWidth(this.tooltip);
+    this.exportTooltip = label;
+    this.exportTooltipWidth = getTextWidth(this.exportTooltip);
 
     this.centerX = 0;
     this._width = this.radius * 2.5;
     this._height = this.radius * 2.5;
 
     // get the proper environment from the continuation
-    this.env = this.data.getEnv()[0];
-    this.enclosingFrame = Frame.getFrom(this.env);
-    this.control = this.data.getControl();
-    this.stash = this.data.getStash();
+    // Delimited continuations capture a slice of computation, not a lexical env,
+    // so we skip the enclosing frame arrow for them.
+    if (isDelimitedContinuation(data)) {
+      // no enclosing frame arrow for delimited continuations
+    } else {
+      const cont = data as Continuation;
+      this.env = cont.getEnv()[0];
+      this.enclosingFrame = Frame.getFrom(this.env);
+      this.control = cont.getControl();
+      this.stash = cont.getStash();
+    }
 
-    this.addReference(firstReference);
+    if (firstReference) {
+      this.addReference(firstReference);
+    }
+  }
+
+  /**
+   * Create a ContValue for a continuation that lives only on the stash
+   * (not bound to any frame variable). Positions it below the stash area.
+   */
+  static createForStash(data: any, _stashWidth: number): ContValue {
+    const contValue = new ContValue(data);
+    // Position in the control area (left side), below the control stack
+    const controlBottom =
+      Layout.controlComponent.y() + Layout.controlComponent.height();
+    const row = Layout.stashValues.length;
+    contValue._x = ControlStashConfig.ControlPosX;
+    contValue._y =
+      controlBottom +
+      Config.FrameMarginY * 3 +
+      row * (contValue.radius * 3 + Config.FrameMarginY);
+    contValue.centerX = contValue._x + contValue.radius * 2;
+    Layout.stashValues.push(contValue);
+    return contValue;
   }
 
   // isLive(): boolean {

@@ -94,6 +94,8 @@ export class Layout {
 
   static previousControlComponent: ControlStack;
   static previousStashComponent: StashStack;
+  /** values created for stash-only items (e.g. delimited continuations from perform) */
+  static stashValues: Value[] = [];
 
   /** all environment and value IDs that are live in the current context */
   static liveEnvIDs: Set<string> = new Set();
@@ -170,6 +172,7 @@ export class Layout {
     Layout.currentStackTruncLight = undefined;
     // clear/initialize data and value arrays
     Layout.values.clear();
+    Layout.stashValues = [];
     arrowSelection.clearSelection();
     Layout.key = 0;
 
@@ -455,7 +458,7 @@ export class Layout {
   }
 
   static memoizeValue(
-    data: GlobalFn | NonGlobalFn | StreamFn | Continuation | DataArray,
+    data: GlobalFn | NonGlobalFn | StreamFn | Continuation | DataArray | any,
     value: Value
   ) {
     if (isBuiltInFn(data) || isStreamFn(data)) Layout.values.set(data, value);
@@ -612,6 +615,7 @@ export class Layout {
                   {Layout.levels.map(level => level.draw())}
                   {CseMachine.getControlStash() && Layout.controlComponent.draw()}
                   {CseMachine.getControlStash() && Layout.stashComponent.draw()}
+                  {CseMachine.getControlStash() && Layout.stashValues.map(v => v.draw())}
                 </KonvaLayer>
                 <KonvaLayer ref={CseAnimation.layerRef} listening={false}>
                   {CseMachine.getControlStash() && CseAnimation.animations.map(c => c.draw())}

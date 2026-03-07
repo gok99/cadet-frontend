@@ -28,7 +28,8 @@
     "update-ui-snapshots": "vitest run --update",
     "eslint": "eslint src",
     "prepare": "husky",
-    "preview": "rsbuild preview"
+    "preview": "rsbuild preview",
+    "deploy:dc": "./scripts/deploy-dc.sh"
   },
   "dependencies": {
     "@blueprintjs/core": "^6.0.0",
@@ -200,6 +201,7 @@
   },
   "resolutions": {
     "cssstyle": "^4.6.0",
-    "@types/estree": "1.0.8"
+    "@types/estree": "1.0.8",
+    "js-slang": "portal:/home/gok99/Local/source-academy/js-slang"
   }
 }

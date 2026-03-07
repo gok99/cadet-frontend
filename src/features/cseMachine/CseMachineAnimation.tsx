@@ -1,3 +1,4 @@
+import { isPerform, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
 import { AppInstr, ArrLitInstr, AssmtInstr, InstrType } from 'js-slang/dist/cse-machine/types';
 import { Node } from 'js-slang/dist/types';
 import { Layer } from 'konva/lib/Layer';
@@ -19,8 +20,10 @@ import { FrameCreationAnimation } from './animationComponents/FrameCreationAnima
 import { FunctionApplicationAnimation } from './animationComponents/FunctionApplicationAnimation';
 import { InstructionApplicationAnimation } from './animationComponents/InstructionApplicationAnimation';
 import { LookupAnimation } from './animationComponents/LookupAnimation';
+import { PerformAnimation } from './animationComponents/PerformAnimation';
 import { PopAnimation } from './animationComponents/PopAnimation';
 import { UnaryOperationAnimation } from './animationComponents/UnaryOperationAnimation';
+import { WithHandleAnimation } from './animationComponents/WithHandleAnimation';
 import { isNode } from './components/ControlStack';
 import { Frame } from './components/Frame';
 import { ArrayValue } from './components/values/ArrayValue';
@@ -161,6 +164,33 @@ export class CseAnimation {
     ) {
       return;
     }
+    try {
+      CseAnimation._updateAnimationInner(lastControlItem, lastControlComponent, currStashComponent);
+    } catch {
+      // Animation setup failed (e.g. stale state during step-back); skip gracefully
+      CseAnimation.clearAnimationComponents();
+    }
+  }
+
+  private static _updateAnimationInner(
+    lastControlItem: any,
+    lastControlComponent: any,
+    currStashComponent: any
+  ) {
+    // Skip animations for delimited continuation instruction types
+    if (
+      isInstr(lastControlItem) &&
+      [
+        InstrType.RESET_CONTROL_MARKER,
+        InstrType.ENV_STACK_RESTORE,
+        InstrType.HANDLER_CONTROL_MARKER,
+        InstrType.RUN_WITH_HANDLER,
+        InstrType.PERFORM,
+        InstrType.OBJECT_LITERAL
+      ].includes(lastControlItem.instrType)
+    ) {
+      return;
+    }
     if (isNode(lastControlItem)) {
       CseAnimation.handleNode(lastControlItem);
     } else if (isInstr(lastControlItem)) {
@@ -171,6 +201,85 @@ export class CseAnimation {
             -appInstr.numOfArgs - 1
           )!;
           const fn = fnStashItem.value;
+
+          // withHandle(handler, body) - show handler markers being installed
+          if (isWithHandle(fn)) {
+            const consumedStashItems =
+              Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
+            const newControlItems = CseAnimation.getNewControlItems();
+            const prevStashSize = Layout.previousStashComponent.stash.size();
+            // New stash items start after removing consumed items
+            const newStashStartIndex = prevStashSize - appInstr.numOfArgs - 1;
+            const newStashItems = Layout.stashComponent.stashItemComponents.slice(
+              Math.max(0, newStashStartIndex)
+            );
+            CseAnimation.animations.push(
+              new WithHandleAnimation(
+                lastControlComponent,
+                consumedStashItems,
+                newControlItems,
+                newStashItems
+              )
+            );
+            break;
+          }
+
+          // perform(op, ...args) - show continuation capture up to handler marker
+          if (isPerform(fn)) {
+            const consumedStashItems =
+              Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
+            const newControlItems = CseAnimation.getNewControlItems();
+
+            // Find captured control items: items between handler marker and app_i in previous control
+            const prevControlItems = Layout.previousControlComponent.stackItemComponents;
+            // Items captured = previous items that are gone (excluding the app_i at top)
+            // Previous: ... | handler(id) | ... captured ... | app_i  (top is app_i)
+            // Current:  ... below handler ... | app_i(1+args)
+            // Captured items are from handler marker index to second-to-last in previous
+            let handlerMarkerIdx = -1;
+            for (let i = prevControlItems.length - 2; i >= 0; i--) {
+              if (prevControlItems[i].text.startsWith('handler control marker(')) {
+                handlerMarkerIdx = i;
+                break;
+              }
+            }
+            const capturedControlItems =
+              handlerMarkerIdx >= 0
+                ? prevControlItems.slice(handlerMarkerIdx, prevControlItems.length - 1)
+                : [];
+
+            // Find captured stash items: items between handler stash marker and consumed items
+            const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+            let handlerStashIdx = -1;
+            for (let i = prevStashItems.length - appInstr.numOfArgs - 2; i >= 0; i--) {
+              if (prevStashItems[i].text.startsWith('handler stash marker(')) {
+                handlerStashIdx = i;
+                break;
+              }
+            }
+            const capturedStashItems =
+              handlerStashIdx >= 0
+                ? prevStashItems.slice(handlerStashIdx, prevStashItems.length - appInstr.numOfArgs - 1)
+                : [];
+
+            // New stash items
+            const newStashItems = Layout.stashComponent.stashItemComponents.slice(
+              handlerStashIdx >= 0 ? handlerStashIdx : 0
+            );
+
+            CseAnimation.animations.push(
+              new PerformAnimation(
+                lastControlComponent,
+                consumedStashItems,
+                capturedControlItems,
+                capturedStashItems,
+                newControlItems,
+                newStashItems
+              )
+            );
+            break;
+          }
+
           if (isBuiltInFn(fn) || isStreamFn(fn)) {
             CseAnimation.animations.push(
               new InstructionApplicationAnimation(
@@ -326,6 +435,12 @@ export class CseAnimation {
         case InstrType.CONTINUE_MARKER:
         case InstrType.MARKER:
         case InstrType.RESET:
+        case InstrType.OBJECT_LITERAL:
+        case InstrType.RESET_CONTROL_MARKER:
+        case InstrType.ENV_STACK_RESTORE:
+        case InstrType.HANDLER_CONTROL_MARKER:
+        case InstrType.RUN_WITH_HANDLER:
+        case InstrType.PERFORM:
           break;
       }
     }
@@ -344,6 +459,11 @@ export class CseAnimation {
     const canvasElement = CseAnimation.getLayer()?.getNativeCanvasElement();
     if (canvasElement) canvasElement.style.pointerEvents = 'none';
     // Play all the animations
-    await Promise.all(this.animations.map(a => a.animate()));
+    try {
+      await Promise.all(this.animations.map(a => a.animate()));
+    } catch {
+      // Animation playback failed; clean up gracefully
+      CseAnimation.clearAnimationComponents();
+    }
   }
 }

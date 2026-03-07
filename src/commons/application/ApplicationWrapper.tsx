@@ -38,7 +38,9 @@ const ApplicationWrapper: React.FC = () => {
       ? playgroundOnlyRouterConfig
       : getFullAcademyRouterConfig({ name, isLoggedIn, courseId, academyRoutes });
 
-    const r = Sentry.wrapCreateBrowserRouterV7(createBrowserRouter)(routerConfig);
+    const r = Sentry.wrapCreateBrowserRouterV7(createBrowserRouter)(routerConfig, {
+      basename: process.env.REACT_APP_BASE_URL || '/'
+    });
     dispatch(updateReactRouter(r));
 
     return r;

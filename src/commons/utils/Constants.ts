@@ -27,8 +27,8 @@ const useBackend = !isTest && isTrue(process.env.REACT_APP_USE_BACKEND);
  */
 const forwardLoadBalancerCookies = isTrue(process.env.REACT_APP_FORWARD_LOAD_BALANCER_COOKIES);
 const useEmptyAssetPrefix = isTrue(process.env.REACT_APP_USE_EMPTY_ASSET_PREFIX);
-const defaultSourceChapter = Chapter.SOURCE_4;
-const defaultSourceVariant = Variant.DEFAULT;
+const defaultSourceChapter = Chapter.DELIM_CONT;
+const defaultSourceVariant = Variant.EXPLICIT_CONTROL;
 const defaultQuestionId = 0;
 const maxBrowseIndex = 50;
 const mobileBreakpoint = 768;

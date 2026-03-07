@@ -152,6 +152,7 @@ export default defineConfig({
     distPath: {
       root: './build'
     },
+    assetPrefix: process.env.ASSET_PREFIX || '/',
     sourceMap: true
   }
 });

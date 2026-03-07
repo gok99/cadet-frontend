@@ -1,5 +1,4 @@
 import { parse } from 'acorn';
-import type { Node } from 'estree';
 import { ACORN_PARSE_OPTIONS } from 'js-slang/dist/constants';
 import createContext, { EnvTree } from 'js-slang/dist/createContext';
 import type { Context } from 'js-slang/dist/types';
@@ -45,5 +44,5 @@ export function mockRuntimeContext(): Context {
 
 export function mockTypeError(): TypeError {
   // Typecast to Node to fix estree-acorn compatability.
-  return new TypeError(parse('', ACORN_PARSE_OPTIONS) as Node, '', '', '');
+  return new TypeError(parse('', ACORN_PARSE_OPTIONS) as any, '', '', '');
 }
