@@ -1059,7 +1059,7 @@ export function getControlItemComponent(
         const ops = [...handlerInstr.handler.keys()].join(', ');
         return new ControlItemComponent(
           `handler control marker(#${handlerInstr.id}) handling ${ops}`,
-          `Handler control marker #${handlerInstr.id} handling: ${ops}`,
+          `handler control marker(#${handlerInstr.id}) handling ${ops}`,
           stackHeight,
           highlightOnHover,
           unhighlightOnHover,

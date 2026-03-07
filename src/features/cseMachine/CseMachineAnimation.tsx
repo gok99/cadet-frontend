@@ -240,7 +240,7 @@ export class CseAnimation {
             // Captured items are from handler marker index to second-to-last in previous
             let handlerMarkerIdx = -1;
             for (let i = prevControlItems.length - 2; i >= 0; i--) {
-              if (prevControlItems[i].tooltip.startsWith('handler control marker (#')) {
+              if (prevControlItems[i].tooltip.startsWith('handler control marker(#')) {
                 handlerMarkerIdx = i;
                 break;
               }
@@ -254,7 +254,7 @@ export class CseAnimation {
             const prevStashItems = Layout.previousStashComponent.stashItemComponents;
             let handlerStashIdx = -1;
             for (let i = prevStashItems.length - appInstr.numOfArgs - 2; i >= 0; i--) {
-              if (prevStashItems[i].tooltip.startsWith('handler stash marker(')) {
+              if (prevStashItems[i].tooltip.startsWith('handler stash marker(#')) {
                 handlerStashIdx = i;
                 break;
               }
