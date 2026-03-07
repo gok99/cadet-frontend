@@ -31,6 +31,36 @@ export abstract class Animatable extends Visible {
    * other none-animation component. */
   static key = -1;
 
+  /** Set to true when the animation is cancelled (e.g. during step-back).
+   * Multi-phase animate() methods should check this between phases to bail out early. */
+  protected cancelled = false;
+
+  /** Pending delay resolvers — resolved immediately on cancel so animate() can bail out. */
+  private pendingDelays: (() => void)[] = [];
+
+  /** Cancel the animation. Called by clearAnimationComponents before destroy. */
+  cancel(): void {
+    this.cancelled = true;
+    // Immediately resolve any pending delays so animate() can exit
+    this.pendingDelays.forEach(resolve => resolve());
+    this.pendingDelays.length = 0;
+  }
+
+  /** Cancellable delay — use instead of raw setTimeout in animate() methods. */
+  protected delay(ms: number): Promise<void> {
+    return new Promise(resolve => {
+      const timer = setTimeout(() => {
+        const idx = this.pendingDelays.indexOf(resolve);
+        if (idx > -1) this.pendingDelays.splice(idx, 1);
+        resolve();
+      }, ms);
+      this.pendingDelays.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+
   /** Starts the animation. `animate` should not be called if the animation is still running.
    * @return a void promise that resolves when the animation is complete */
   abstract animate(animationConfig?: AnimationConfig): Promise<void>;

@@ -58,6 +58,7 @@ export class CseAnimation {
   }
 
   private static clearAnimationComponents(): void {
+    CseAnimation.animations.forEach(a => a.cancel());
     CseAnimation.animations.forEach(a => a.destroy());
     CseAnimation.animations.length = 0;
   }
@@ -166,8 +167,9 @@ export class CseAnimation {
     }
     try {
       CseAnimation._updateAnimationInner(lastControlItem, lastControlComponent, currStashComponent);
-    } catch {
+    } catch (e) {
       // Animation setup failed (e.g. stale state during step-back); skip gracefully
+      console.warn('[CseAnimation] updateAnimation failed:', e);
       CseAnimation.clearAnimationComponents();
     }
   }
@@ -238,7 +240,7 @@ export class CseAnimation {
             // Captured items are from handler marker index to second-to-last in previous
             let handlerMarkerIdx = -1;
             for (let i = prevControlItems.length - 2; i >= 0; i--) {
-              if (prevControlItems[i].text.startsWith('handler control marker(')) {
+              if (prevControlItems[i].tooltip.startsWith('Handler control marker #')) {
                 handlerMarkerIdx = i;
                 break;
               }
@@ -252,7 +254,7 @@ export class CseAnimation {
             const prevStashItems = Layout.previousStashComponent.stashItemComponents;
             let handlerStashIdx = -1;
             for (let i = prevStashItems.length - appInstr.numOfArgs - 2; i >= 0; i--) {
-              if (prevStashItems[i].text.startsWith('handler stash marker(')) {
+              if (prevStashItems[i].tooltip.startsWith('handler stash marker(')) {
                 handlerStashIdx = i;
                 break;
               }
@@ -458,12 +460,14 @@ export class CseAnimation {
     // this a workaround.
     const canvasElement = CseAnimation.getLayer()?.getNativeCanvasElement();
     if (canvasElement) canvasElement.style.pointerEvents = 'none';
-    // Play all the animations
+    // Snapshot the current animations so we don't interfere with new ones
+    // set up by updateAnimation if the user steps during playback.
+    const currentAnimations = [...this.animations];
     try {
-      await Promise.all(this.animations.map(a => a.animate()));
+      await Promise.all(currentAnimations.map(a => a.animate()));
     } catch {
-      // Animation playback failed; clean up gracefully
-      CseAnimation.clearAnimationComponents();
+      // Animation playback failed; clean up the snapshot gracefully
+      currentAnimations.forEach(a => a.destroy());
     }
   }
 }

@@ -1,26 +1,24 @@
+import { Easings } from 'konva/lib/Tween';
 import React from 'react';
 import { Group } from 'react-konva';
 
 import { ControlItemComponent } from '../components/ControlItemComponent';
 import { StashItemComponent } from '../components/StashItemComponent';
 import { Visible } from '../components/Visible';
-import { ControlStashConfig } from '../CseMachineControlStashConfig';
 import {
   defaultActiveColor,
   defaultDangerColor,
-  defaultStrokeColor,
-  getTextWidth
+  defaultStrokeColor
 } from '../CseMachineUtils';
-import { Animatable } from './base/Animatable';
+import { Animatable, AnimationConfig } from './base/Animatable';
 import { AnimatedGenericArrow } from './base/AnimatedGenericArrow';
 import { AnimatedTextbox } from './base/AnimatedTextbox';
 import { getNodeLocation, getNodePosition } from './base/AnimationUtils';
 
 /**
  * Animation for perform (effect operation).
- * Shows the app instruction and stash items being consumed,
- * control/stash items between handler markers and top being "captured"
- * into a delimited continuation, and the handler function being applied.
+ * Shows captured control/stash items being "sucked into" the continuation circle,
+ * while new control/stash items fade in.
  */
 export class PerformAnimation extends Animatable {
   private appInstrAnimation: AnimatedTextbox;
@@ -28,14 +26,18 @@ export class PerformAnimation extends Animatable {
   private capturedControlAnimations: AnimatedTextbox[];
   private capturedStashAnimations: AnimatedTextbox[];
   private newControlItemAnimations: AnimatedTextbox[];
-  private newStashItemAnimations: AnimatedTextbox[];
-  private newStashArrowAnimations: AnimatedGenericArrow<StashItemComponent, Visible>[];
+  // New stash items split into: the delim cont item (shown early) and the rest
+  private contStashAnimation?: AnimatedTextbox;
+  private contStashArrowAnimation?: AnimatedGenericArrow<StashItemComponent, Visible>;
+  private contStashItem?: StashItemComponent;
+  private otherNewStashItemAnimations: AnimatedTextbox[];
+  private otherNewStashArrowAnimations: AnimatedGenericArrow<StashItemComponent, Visible>[];
   private contTarget: { x: number; y: number };
   private contValueVisible?: Visible;
 
   constructor(
-    private appInstrItem: ControlItemComponent,
-    private consumedStashItems: StashItemComponent[],
+    appInstrItem: ControlItemComponent,
+    consumedStashItems: StashItemComponent[],
     /** Control items that were between handler marker and top (now removed) */
     capturedControlItems: ControlItemComponent[],
     /** Stash items that were between handler marker and top (now removed) */
@@ -58,30 +60,47 @@ export class PerformAnimation extends Animatable {
         })
     );
 
+    // Captured items start with default stroke — they'll be highlighted during animation
     this.capturedControlAnimations = capturedControlItems.map(
       item =>
         new AnimatedTextbox(item.text, getNodePosition(item), {
-          rectProps: { stroke: defaultDangerColor() }
+          rectProps: { stroke: defaultStrokeColor() }
         })
     );
 
     this.capturedStashAnimations = capturedStashItems.map(
       item =>
         new AnimatedTextbox(item.text, getNodePosition(item), {
-          rectProps: { stroke: defaultDangerColor() }
+          rectProps: { stroke: defaultStrokeColor() }
         })
     );
 
     // Find the continuation target: the ContValue (circle icon) that the delim cont
     // stash item's arrow points to
-    const contStashItem = newStashItems.find(item => item.text === 'delim cont');
-    const contValueTarget = contStashItem?.arrow?.target;
+    this.contStashItem = newStashItems.find(item => item.tooltip === 'delim cont');
+    const contValueTarget = this.contStashItem?.arrow?.target;
     this.contValueVisible = contValueTarget;
     this.contTarget = contValueTarget
       ? getNodeLocation(contValueTarget)
-      : contStashItem
-        ? getNodeLocation(contStashItem)
+      : this.contStashItem
+        ? getNodeLocation(this.contStashItem)
         : { x: appInstrItem.x(), y: appInstrItem.y() };
+
+    // Separate delim cont stash animation from the rest
+    const otherNewStashItems = newStashItems.filter(item => item !== this.contStashItem);
+
+    if (this.contStashItem) {
+      this.contStashAnimation = new AnimatedTextbox(this.contStashItem.text, {
+        ...getNodePosition(this.contStashItem),
+        opacity: 0
+      });
+      if (this.contStashItem.arrow) {
+        this.contStashArrowAnimation = new AnimatedGenericArrow(
+          this.contStashItem.arrow,
+          { opacity: 0 }
+        );
+      }
+    }
 
     const appLocation = getNodeLocation(appInstrItem);
     this.newControlItemAnimations = newControlItems.map(
@@ -94,7 +113,7 @@ export class PerformAnimation extends Animatable {
         })
     );
 
-    this.newStashItemAnimations = newStashItems.map(
+    this.otherNewStashItemAnimations = otherNewStashItems.map(
       item =>
         new AnimatedTextbox(item.text, {
           ...getNodePosition(item),
@@ -102,7 +121,7 @@ export class PerformAnimation extends Animatable {
         })
     );
 
-    this.newStashArrowAnimations = newStashItems.flatMap(item =>
+    this.otherNewStashArrowAnimations = otherNewStashItems.flatMap(item =>
       item.arrow ? [new AnimatedGenericArrow(item.arrow, { opacity: 0 })] : []
     );
   }
@@ -115,86 +134,119 @@ export class PerformAnimation extends Animatable {
         {this.capturedControlAnimations.map(a => a.draw())}
         {this.capturedStashAnimations.map(a => a.draw())}
         {this.newControlItemAnimations.map(a => a.draw())}
-        {this.newStashItemAnimations.map(a => a.draw())}
-        {this.newStashArrowAnimations.map(a => a.draw())}
+        {this.contStashAnimation?.draw()}
+        {this.contStashArrowAnimation?.draw()}
+        {this.otherNewStashItemAnimations.map(a => a.draw())}
+        {this.otherNewStashArrowAnimations.map(a => a.draw())}
       </Group>
     );
   }
 
   async animate() {
+    // Easing that accelerates — starts slow, ends fast — for the "sucking in" effect
+    const easeIn: AnimationConfig['easing'] = Easings.StrongEaseIn;
+
     this.newControlItems.forEach(item => item.ref.current?.hide());
     this.newStashItems.forEach(item => item.ref.current?.hide());
     this.newStashItems.forEach(item => item.arrow?.ref.current?.hide());
-    // Hide the cont value circle until captured items converge into it
+    // Hide the cont value circle — we'll reveal it before the suck phase
     this.contValueVisible?.ref.current?.hide();
 
-    const minInstrWidth =
-      getTextWidth(this.appInstrItem.text) + ControlStashConfig.ControlItemTextPadding * 2;
-
-    // Phase 1: Move app instruction toward consumed stash items
-    const firstConsumed = this.consumedStashItems[0];
-    const isFirstStashItem = firstConsumed?.index === 0;
+    // Fade out app instruction and consumed stash items
     await Promise.all([
-      this.appInstrAnimation.animateRectTo({ stroke: defaultStrokeColor() }),
-      this.appInstrAnimation.animateTo({
-        x: firstConsumed
-          ? firstConsumed.x() - (isFirstStashItem ? minInstrWidth : 0)
-          : this.appInstrItem.x(),
-        y: firstConsumed
-          ? firstConsumed.y() + (isFirstStashItem ? 0 : firstConsumed.height())
-          : this.appInstrItem.y(),
-        width: minInstrWidth
-      })
+      this.appInstrAnimation.animateTo({ opacity: 0 }, { duration: 0.8 }),
+      ...this.consumedStashAnimations.map(a =>
+        a.animateTo({ opacity: 0 }, { duration: 0.8 })
+      )
     ]);
+    if (this.cancelled) return;
 
-    const config = { duration: 1.5 };
-    const fadeDuration = 1.0;
-    const fadeInDelay = 0.5;
+    // Phase 1: Highlight captured items one by one from top down to marker
+    const highlightDuration = 0.6;
+    const allCaptured = [
+      ...([...this.capturedControlAnimations].reverse()),
+      ...([...this.capturedStashAnimations].reverse())
+    ];
 
-    // Phase 2: Captured control and stash items converge toward the continuation object
-    // Consumed stash items also move to the cont target
-    // New control and stash items fade in at their final positions
+    for (const a of allCaptured) {
+      if (this.cancelled) return;
+      await a.animateRectTo(
+        { stroke: defaultDangerColor() },
+        { duration: highlightDuration }
+      );
+    }
+    if (this.cancelled) return;
+
+    // Pause so user can see everything highlighted
+    await this.delay(300);
+    if (this.cancelled) return;
+
+    // Phase 2: Reveal the continuation object (stash label + arrow + heap circle)
+    // as the "black hole" target BEFORE sucking items in.
+    this.contValueVisible?.ref.current?.show();
+    const contRevealDuration = 1.2;
     await Promise.all([
-      // App instruction moves to cont target and fades out
-      this.appInstrAnimation.animateTo(this.contTarget, config),
-      this.appInstrAnimation.animateTo({ opacity: 0 }, { ...config, duration: fadeDuration }),
-      // Captured control items move toward continuation and fade out
-      ...this.capturedControlAnimations.flatMap(a => [
-        a.animateTo(this.contTarget, config),
-        a.animateTo({ opacity: 0 }, { ...config, duration: fadeDuration })
-      ]),
-      // Captured stash items move toward continuation and fade out
-      ...this.capturedStashAnimations.flatMap(a => [
-        a.animateTo(this.contTarget, config),
-        a.animateTo({ opacity: 0 }, { ...config, duration: fadeDuration })
-      ]),
-      // Consumed stash items (perform, op, args) move toward continuation and fade out
-      ...this.consumedStashAnimations.flatMap(a => [
-        a.animateTo(this.contTarget, config),
-        a.animateTo({ opacity: 0 }, { ...config, duration: fadeDuration })
-      ]),
+      this.contStashAnimation?.animateTo({ opacity: 1 }, { duration: contRevealDuration }),
+      this.contStashArrowAnimation?.animateTo({ opacity: 1 }, { duration: contRevealDuration })
+    ]);
+    if (this.cancelled) return;
+
+    await this.delay(150);
+    if (this.cancelled) return;
+
+    // Items shrink and converge into the cont object. They stay fully opaque
+    // until very close to the target so you can see them moving, not just fading.
+    const suckDuration = 3.0;
+    const allSucked = [...this.capturedControlAnimations, ...this.capturedStashAnimations];
+    const totalStagger = 0.6;
+    const staggerStep = allSucked.length > 1 ? totalStagger / (allSucked.length - 1) : 0;
+
+    await Promise.all(
+      allSucked.map((a, i) => {
+        const delay = i * staggerStep;
+        return Promise.all([
+          // Move + shrink toward the cont object
+          a.animateTo(
+            { x: this.contTarget.x, y: this.contTarget.y, width: 0, height: 0 },
+            { duration: suckDuration, delay, easing: easeIn }
+          ),
+          // Only fade out in the last 10% — blocks stay visible almost all the way in
+          a.animateTo(
+            { opacity: 0 },
+            { duration: suckDuration * 0.1, delay: delay + suckDuration * 0.9 }
+          )
+        ]);
+      })
+    );
+    if (this.cancelled) return;
+
+    // Phase 3: Fade in new control items and remaining stash items
+    const fadeInDuration = 1.2;
+    await Promise.all([
       // New control items fade in at their final positions
       ...this.newControlItemAnimations.flatMap((a, i) => [
-        a.animateTo(getNodePosition(this.newControlItems[i]), config),
-        a.animateTo({ opacity: 1 }, { ...config, duration: fadeDuration, delay: fadeInDelay })
+        a.animateTo(getNodePosition(this.newControlItems[i]), { duration: fadeInDuration }),
+        a.animateTo({ opacity: 1 }, { duration: fadeInDuration })
       ]),
       this.newControlItemAnimations
         .at(-1)
-        ?.animateRectTo({ stroke: defaultActiveColor() }, config),
-      // New stash items fade in
-      ...this.newStashItemAnimations.map(a =>
-        a.animateTo({ opacity: 1 }, { ...config, duration: fadeDuration, delay: fadeInDelay })
+        ?.animateRectTo({ stroke: defaultActiveColor() }, { duration: fadeInDuration }),
+      // Remaining stash items fade in
+      ...this.otherNewStashItemAnimations.map(a =>
+        a.animateTo({ opacity: 1 }, { duration: fadeInDuration })
       ),
-      // Stash arrows fade in after items
-      ...this.newStashArrowAnimations.map(a =>
-        a.animateTo({ opacity: 1 }, { ...config, delay: config.duration })
+      // Remaining stash arrows fade in
+      ...this.otherNewStashArrowAnimations.map(a =>
+        a.animateTo({ opacity: 1 }, { duration: fadeInDuration, delay: 0.3 })
       )
     ]);
+    if (this.cancelled) return;
     this.destroy();
   }
 
   destroy() {
     this.ref.current?.hide();
+    // Always restore visibility of real items
     this.contValueVisible?.ref.current?.show();
     this.newControlItems.forEach(item => item.ref.current?.show());
     this.newStashItems.forEach(item => item.ref.current?.show());
@@ -204,7 +256,9 @@ export class PerformAnimation extends Animatable {
     this.capturedControlAnimations.forEach(a => a.destroy());
     this.capturedStashAnimations.forEach(a => a.destroy());
     this.newControlItemAnimations.forEach(a => a.destroy());
-    this.newStashItemAnimations.forEach(a => a.destroy());
-    this.newStashArrowAnimations.forEach(a => a.destroy());
+    this.contStashAnimation?.destroy();
+    this.contStashArrowAnimation?.destroy();
+    this.otherNewStashItemAnimations.forEach(a => a.destroy());
+    this.otherNewStashArrowAnimations.forEach(a => a.destroy());
   }
 }

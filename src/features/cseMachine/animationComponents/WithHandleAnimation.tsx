@@ -100,6 +100,7 @@ export class WithHandleAnimation extends Animatable {
         a.animateRectTo({ stroke: defaultStrokeColor() })
       )
     ]);
+    if (this.cancelled) return;
 
     const fadeDuration = 0.75;
     const fadeInDelay = 0.25;
@@ -127,6 +128,7 @@ export class WithHandleAnimation extends Animatable {
         a.animateTo({ opacity: 1 }, { ...config, duration: fadeDuration, delay: fadeInDelay })
       )
     ]);
+    if (this.cancelled) return;
     this.destroy();
   }
 

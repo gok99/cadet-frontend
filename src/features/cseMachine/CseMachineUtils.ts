@@ -120,7 +120,12 @@ export function isFunction(x: any): x is Function {
 export function isBuiltInFn(data: Data): data is BuiltInFn {
   // Extra `environment` check for functions returned from `stream`
   // TODO: remove if `stream` becomes a pre-defined function
-  return isFunction(data) && !isClosure(data) && !{}.hasOwnProperty.call(data, 'environment');
+  return (
+    isFunction(data) &&
+    !isClosure(data) &&
+    !isContinuation(data) &&
+    !{}.hasOwnProperty.call(data, 'environment')
+  );
 }
 
 /** Returns `true` if `data` is a pre-defined function */
