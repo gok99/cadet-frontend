@@ -410,7 +410,7 @@ export function isMainReference(value: Value, reference: ReferenceType) {
     if (isDelimitedContinuation(value.data)) {
       // Delimited continuations don't have a single owning environment;
       // use the first binding reference as the main reference.
-      return reference instanceof Binding && value.references.length === 0;
+      return reference instanceof Binding && value.references[0] === reference;
     }
     return (
       reference instanceof Binding &&
