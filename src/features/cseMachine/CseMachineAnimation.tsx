@@ -1,4 +1,4 @@
-import { isPerform, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
+import { DelimitedContinuation, isPerform, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
 import { AppInstr, ArrLitInstr, AssmtInstr, InstrType } from 'js-slang/dist/cse-machine/types';
 import { Node } from 'js-slang/dist/types';
 import { Layer } from 'konva/lib/Layer';
@@ -13,6 +13,7 @@ import { Animatable } from './animationComponents/base/Animatable';
 import { lookupBinding } from './animationComponents/base/AnimationUtils';
 import { BinaryOperationAnimation } from './animationComponents/BinaryOperationAnimation';
 import { BranchAnimation } from './animationComponents/BranchAnimation';
+import { ContinuationApplicationAnimation } from './animationComponents/ContinuationApplicationAnimation';
 import { ControlExpansionAnimation } from './animationComponents/ControlExpansionAnimation';
 import { ControlToStashAnimation } from './animationComponents/ControlToStashAnimation';
 import { EnvironmentAnimation } from './animationComponents/EnvironmentAnimation';
@@ -227,7 +228,6 @@ export class CseAnimation {
           }
 
           // perform(op, ...args) - show continuation capture up to handler marker
-          console.log('[CseAnimation] APPLICATION fn:', fn, 'isPerform:', isPerform(fn));
           if (isPerform(fn)) {
             const consumedStashItems =
               Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
@@ -293,24 +293,36 @@ export class CseAnimation {
               handlerStashIdx >= 0 ? handlerStashIdx : 0
             );
 
-            console.log('[CseAnimation] PerformAnimation:', {
-              opName,
-              handlerMarkerIdx,
-              handlerId,
-              handlerStashIdx,
-              capturedControl: capturedControlItems.map(c => c.tooltip),
-              capturedStash: capturedStashItems.map(c => c.tooltip),
-              newControl: newControlItems.map(c => c.tooltip),
-              newStash: newStashItems.map(c => c.tooltip),
-              prevControlTooltips: prevControlItems.map(c => c.tooltip),
-              prevStashTooltips: prevStashItems.map(c => c.tooltip)
-            });
             CseAnimation.animations.push(
               new PerformAnimation(
                 lastControlComponent,
                 consumedStashItems,
                 capturedControlItems,
                 capturedStashItems,
+                newControlItems,
+                newStashItems
+              )
+            );
+            break;
+          }
+
+          // Delimited continuation application — items fly out of the cont circle
+          if (fn instanceof DelimitedContinuation) {
+            const contStashItem = fnStashItem;
+            const argStashItem = Layout.previousStashComponent.stashItemComponents.at(-1);
+            const newControlItems = CseAnimation.getNewControlItems();
+            // New stash items: everything from the previous stash size minus consumed (cont + arg)
+            // up to the current stash top
+            const prevStashSize = Layout.previousStashComponent.stash.size();
+            const newStashStartIndex = prevStashSize - appInstr.numOfArgs - 1;
+            const newStashItems = Layout.stashComponent.stashItemComponents.slice(
+              Math.max(0, newStashStartIndex)
+            );
+            CseAnimation.animations.push(
+              new ContinuationApplicationAnimation(
+                lastControlComponent,
+                contStashItem,
+                argStashItem !== contStashItem ? argStashItem : undefined,
                 newControlItems,
                 newStashItems
               )
