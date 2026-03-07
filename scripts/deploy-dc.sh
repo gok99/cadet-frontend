@@ -5,7 +5,7 @@ REPO="git@github.com:gok99/source-dc.git"
 BUILD_DIR="build"
 
 echo "Building with ASSET_PREFIX=/source-dc/ ..."
-ASSET_PREFIX="/source-dc/" yarn build
+ASSET_PREFIX="/source-dc/" REACT_APP_BASE_URL="/source-dc" yarn build
 
 echo "Deploying to $REPO (gh-pages branch)..."
 cd "$BUILD_DIR"
