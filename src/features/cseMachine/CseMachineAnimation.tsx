@@ -240,7 +240,7 @@ export class CseAnimation {
             // Captured items are from handler marker index to second-to-last in previous
             let handlerMarkerIdx = -1;
             for (let i = prevControlItems.length - 2; i >= 0; i--) {
-              if (prevControlItems[i].tooltip.startsWith('handler control marker (')) {
+              if (prevControlItems[i].tooltip.startsWith('handler control marker (#')) {
                 handlerMarkerIdx = i;
                 break;
               }
