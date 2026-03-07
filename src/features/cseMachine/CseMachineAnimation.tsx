@@ -227,6 +227,7 @@ export class CseAnimation {
           }
 
           // perform(op, ...args) - show continuation capture up to handler marker
+          console.log('[CseAnimation] APPLICATION fn:', fn, 'isPerform:', isPerform(fn));
           if (isPerform(fn)) {
             const consumedStashItems =
               Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
@@ -292,6 +293,18 @@ export class CseAnimation {
               handlerStashIdx >= 0 ? handlerStashIdx : 0
             );
 
+            console.log('[CseAnimation] PerformAnimation:', {
+              opName,
+              handlerMarkerIdx,
+              handlerId,
+              handlerStashIdx,
+              capturedControl: capturedControlItems.map(c => c.tooltip),
+              capturedStash: capturedStashItems.map(c => c.tooltip),
+              newControl: newControlItems.map(c => c.tooltip),
+              newStash: newStashItems.map(c => c.tooltip),
+              prevControlTooltips: prevControlItems.map(c => c.tooltip),
+              prevStashTooltips: prevStashItems.map(c => c.tooltip)
+            });
             CseAnimation.animations.push(
               new PerformAnimation(
                 lastControlComponent,

@@ -5,6 +5,7 @@ import { Group } from 'react-konva';
 import { ControlItemComponent } from '../components/ControlItemComponent';
 import { StashItemComponent } from '../components/StashItemComponent';
 import { Visible } from '../components/Visible';
+import { Layout } from '../CseMachineLayout';
 import {
   defaultActiveColor,
   defaultDangerColor,
@@ -146,9 +147,17 @@ export class PerformAnimation extends Animatable {
     // Easing that accelerates — starts slow, ends fast — for the "sucking in" effect
     const easeIn: AnimationConfig['easing'] = Easings.StrongEaseIn;
 
-    this.newControlItems.forEach(item => item.ref.current?.hide());
-    this.newStashItems.forEach(item => item.ref.current?.hide());
-    this.newStashItems.forEach(item => item.arrow?.ref.current?.hide());
+    // Hide ALL current control and stash items so they don't cover the animation
+    const controlComponent = Layout.controlComponent;
+    const stashComponent = Layout.stashComponent;
+    controlComponent.stackItemComponents.forEach(item => item.ref.current?.hide());
+    stashComponent.stashItemComponents.forEach(item => {
+      item.ref.current?.hide();
+      item.arrow?.ref.current?.hide();
+    });
+    // Also hide stash values (heap objects pointed to by stash arrows)
+    Layout.stashValues.forEach(v => v.ref.current?.hide());
+
     // Hide the cont value circle — we'll reveal it before the suck phase
     this.contValueVisible?.ref.current?.hide();
 
@@ -246,11 +255,14 @@ export class PerformAnimation extends Animatable {
 
   destroy() {
     this.ref.current?.hide();
-    // Always restore visibility of real items
+    // Restore visibility of ALL control and stash items
     this.contValueVisible?.ref.current?.show();
-    this.newControlItems.forEach(item => item.ref.current?.show());
-    this.newStashItems.forEach(item => item.ref.current?.show());
-    this.newStashItems.forEach(item => item.arrow?.ref.current?.show());
+    Layout.controlComponent.stackItemComponents.forEach(item => item.ref.current?.show());
+    Layout.stashComponent.stashItemComponents.forEach(item => {
+      item.ref.current?.show();
+      item.arrow?.ref.current?.show();
+    });
+    Layout.stashValues.forEach(v => v.ref.current?.show());
     this.appInstrAnimation.destroy();
     this.consumedStashAnimations.forEach(a => a.destroy());
     this.capturedControlAnimations.forEach(a => a.destroy());
