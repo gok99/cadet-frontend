@@ -232,17 +232,31 @@ export class CseAnimation {
               Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
             const newControlItems = CseAnimation.getNewControlItems();
 
-            // Find captured control items: items between handler marker and app_i in previous control
+            // Find the handler control marker that handles the performed operation.
+            // The operation name is the first argument on the stash (after perform itself).
             const prevControlItems = Layout.previousControlComponent.stackItemComponents;
-            // Items captured = previous items that are gone (excluding the app_i at top)
-            // Previous: ... | handler(id) | ... captured ... | app_i  (top is app_i)
-            // Current:  ... below handler ... | app_i(1+args)
-            // Captured items are from handler marker index to second-to-last in previous
+            const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+
+            // Extract operation name from first arg stash item tooltip (it's quoted, e.g. 'get')
+            const opStashItem = prevStashItems[prevStashItems.length - appInstr.numOfArgs];
+            const opName = opStashItem?.tooltip?.replace(/^'|'$/g, '');
+
+            // Search from top down for the handler marker whose "handling" list includes the op
             let handlerMarkerIdx = -1;
+            let handlerId: string | undefined;
             for (let i = prevControlItems.length - 2; i >= 0; i--) {
-              if (prevControlItems[i].tooltip.startsWith('handler control marker(#')) {
-                handlerMarkerIdx = i;
-                break;
+              const tip = prevControlItems[i].tooltip;
+              if (tip.startsWith('handler control marker(#')) {
+                // Extract handling ops from tooltip: "handler control marker(#id) handling op1, op2"
+                const handlingPart = tip.replace(/^.*\) handling /, '');
+                const ops = handlingPart.split(', ').map(s => s.trim());
+                if (opName && ops.includes(opName)) {
+                  handlerMarkerIdx = i;
+                  // Extract handler ID: between (# and )
+                  const idMatch = tip.match(/\(#(\d+)\)/);
+                  handlerId = idMatch?.[1];
+                  break;
+                }
               }
             }
             const capturedControlItems =
@@ -250,13 +264,22 @@ export class CseAnimation {
                 ? prevControlItems.slice(handlerMarkerIdx, prevControlItems.length - 1)
                 : [];
 
-            // Find captured stash items: items between handler stash marker and consumed items
-            const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+            // Find the matching stash marker by handler ID
             let handlerStashIdx = -1;
             for (let i = prevStashItems.length - appInstr.numOfArgs - 2; i >= 0; i--) {
-              if (prevStashItems[i].tooltip.startsWith('handler stash marker(#')) {
-                handlerStashIdx = i;
-                break;
+              const tip = prevStashItems[i].tooltip;
+              if (tip.startsWith('handler stash marker(#')) {
+                // Match by ID if we have one, otherwise take first
+                if (handlerId) {
+                  const idMatch = tip.match(/\(#(\d+)\)/);
+                  if (idMatch?.[1] === handlerId) {
+                    handlerStashIdx = i;
+                    break;
+                  }
+                } else {
+                  handlerStashIdx = i;
+                  break;
+                }
               }
             }
             const capturedStashItems =
