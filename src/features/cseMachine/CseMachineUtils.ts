@@ -1041,7 +1041,7 @@ export function getControlItemComponent(
       case InstrType.RESET_CONTROL_MARKER:
         return new ControlItemComponent(
           'reset mark',
-          'Delimiter marker for delimited continuations (reset boundary)',
+          'reset control marker',
           stackHeight,
           highlightOnHover,
           unhighlightOnHover,

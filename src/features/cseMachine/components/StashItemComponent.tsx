@@ -1,3 +1,4 @@
+import { HandlerStashMarker, ResetStashMarker } from 'js-slang/dist/cse-machine/types';
 import { KonvaEventObject } from 'konva/lib/Node';
 import React, { RefObject } from 'react';
 import { Label, Tag, Text } from 'react-konva';
@@ -24,7 +25,6 @@ import {
   setUnhoveredStyle,
   truncateText
 } from '../CseMachineUtils';
-import { HandlerStashMarker, ResetStashMarker } from 'js-slang/dist/cse-machine/types';
 import { isContinuation, isDelimitedContinuation } from '../utils/continuation';
 import { ArrowFromStashItemComponent } from './arrows/ArrowFromStashItemComponent';
 import { ArrayValue } from './values/ArrayValue';
@@ -72,7 +72,7 @@ export class StashItemComponent extends Visible implements IHoverable {
       ControlStashConfig.StashMaxTextWidth,
       ControlStashConfig.StashMaxTextHeight
     ).replace(/[\r\n]/gm, ' ');
-    this.tooltip = valToStashRep(value);
+    this.tooltip = value instanceof ResetStashMarker ? 'reset stash marker' : valToStashRep(value);
     this.tooltipRef = React.createRef();
     this._width =
       ControlStashConfig.StashItemTextPadding * 2 +

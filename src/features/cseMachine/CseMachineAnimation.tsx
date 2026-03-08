@@ -1,4 +1,4 @@
-import { DelimitedContinuation, isPerform, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
+import { DelimitedContinuation, isPerform, isShift, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
 import { AppInstr, ArrLitInstr, AssmtInstr, HandlerControlMarkerInstr, InstrType } from 'js-slang/dist/cse-machine/types';
 import { Node } from 'js-slang/dist/types';
 import { Layer } from 'konva/lib/Layer';
@@ -16,10 +16,11 @@ import { BranchAnimation } from './animationComponents/BranchAnimation';
 import { ContinuationApplicationAnimation } from './animationComponents/ContinuationApplicationAnimation';
 import { ControlExpansionAnimation } from './animationComponents/ControlExpansionAnimation';
 import { ControlToStashAnimation } from './animationComponents/ControlToStashAnimation';
+import { ContValueMoveAnimation } from './animationComponents/ContValueMoveAnimation';
 import { EnvironmentAnimation } from './animationComponents/EnvironmentAnimation';
 import { FrameCreationAnimation } from './animationComponents/FrameCreationAnimation';
-import { HandlerMarkerPopAnimation } from './animationComponents/HandlerMarkerPopAnimation';
 import { FunctionApplicationAnimation } from './animationComponents/FunctionApplicationAnimation';
+import { HandlerMarkerPopAnimation } from './animationComponents/HandlerMarkerPopAnimation';
 import { InstructionApplicationAnimation } from './animationComponents/InstructionApplicationAnimation';
 import { LookupAnimation } from './animationComponents/LookupAnimation';
 import { PerformAnimation } from './animationComponents/PerformAnimation';
@@ -30,7 +31,6 @@ import { isNode } from './components/ControlStack';
 import { Frame } from './components/Frame';
 import { ArrayValue } from './components/values/ArrayValue';
 import { ContValue } from './components/values/ContValue';
-import { ContValueMoveAnimation } from './animationComponents/ContValueMoveAnimation';
 import CseMachine from './CseMachine';
 import { Layout } from './CseMachineLayout';
 import { isBuiltInFn, isEnvEqual, isInstr, isStreamFn } from './CseMachineUtils';
@@ -189,7 +189,6 @@ export class CseAnimation {
     if (
       isInstr(lastControlItem) &&
       [
-        InstrType.RESET_CONTROL_MARKER,
         InstrType.ENV_STACK_RESTORE,
         InstrType.RUN_WITH_HANDLER,
         InstrType.PERFORM,
@@ -295,6 +294,61 @@ export class CseAnimation {
             // New stash items
             const newStashItems = Layout.stashComponent.stashItemComponents.slice(
               handlerStashIdx >= 0 ? handlerStashIdx : 0
+            );
+
+            CseAnimation.animations.push(
+              new PerformAnimation(
+                lastControlComponent,
+                consumedStashItems,
+                capturedControlItems,
+                capturedStashItems,
+                newControlItems,
+                newStashItems
+              )
+            );
+            break;
+          }
+
+          // shift(f) — captures continuation up to reset marker, similar to perform
+          if (isShift(fn)) {
+            const consumedStashItems =
+              Layout.previousStashComponent.stashItemComponents.slice(-appInstr.numOfArgs - 1);
+            const newControlItems = CseAnimation.getNewControlItems();
+            const prevControlItems = Layout.previousControlComponent.stackItemComponents;
+            const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+
+            // Find reset_control_marker from top down
+            let resetControlIdx = -1;
+            for (let i = prevControlItems.length - 2; i >= 0; i--) {
+              if (prevControlItems[i].text === 'reset mark') {
+                resetControlIdx = i;
+                break;
+              }
+            }
+            const capturedControlItems =
+              resetControlIdx >= 0
+                ? prevControlItems.slice(resetControlIdx, prevControlItems.length - 1)
+                : [];
+
+            // Find ResetStashMarker from top down (above consumed items)
+            let resetStashIdx = -1;
+            for (let i = prevStashItems.length - appInstr.numOfArgs - 2; i >= 0; i--) {
+              if (prevStashItems[i].text.startsWith('reset')) {
+                resetStashIdx = i;
+                break;
+              }
+            }
+            const capturedStashItems =
+              resetStashIdx >= 0
+                ? prevStashItems.slice(
+                    resetStashIdx,
+                    prevStashItems.length - appInstr.numOfArgs - 1
+                  )
+                : [];
+
+            // New stash items
+            const newStashItems = Layout.stashComponent.stashItemComponents.slice(
+              Math.max(0, resetStashIdx >= 0 ? resetStashIdx : 0)
             );
 
             CseAnimation.animations.push(
@@ -490,9 +544,24 @@ export class CseAnimation {
         case InstrType.MARKER:
         case InstrType.RESET:
         case InstrType.OBJECT_LITERAL:
-        case InstrType.RESET_CONTROL_MARKER:
         case InstrType.ENV_STACK_RESTORE:
           break;
+        case InstrType.RESET_CONTROL_MARKER: {
+          // Reset marker popped — find and animate the matching stash marker disappearing
+          const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+          // Find the topmost ResetStashMarker (text starts with 'reset')
+          let resetStashItem: typeof prevStashItems[number] | undefined;
+          for (let i = prevStashItems.length - 1; i >= 0; i--) {
+            if (prevStashItems[i].text.startsWith('reset')) {
+              resetStashItem = prevStashItems[i];
+              break;
+            }
+          }
+          CseAnimation.animations.push(
+            new HandlerMarkerPopAnimation(lastControlComponent, resetStashItem)
+          );
+          break;
+        }
         case InstrType.HANDLER_CONTROL_MARKER: {
           // Handler marker popped — find and animate the matching stash marker disappearing
           const markerInstr = lastControlItem as HandlerControlMarkerInstr;
