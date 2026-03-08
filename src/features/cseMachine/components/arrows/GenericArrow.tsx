@@ -134,11 +134,11 @@ export class GenericArrow<Source extends IVisible, Target extends IVisible>
     if (CseMachine.getPrintableMode()) return;
     e.cancelBubble = true;
     this.setHighlightedStyle();
-    // Move entire arrow group to top
+    // Move entire arrow group to top (but never reorder Layers within the Stage,
+    // which would put the main layer above the animation layer and hide animations)
     if (this.ref.current && this.ref.current.moveToTop) {
-      // Move the arrow's parent container to top first, then move arrow within that
       const parent = this.ref.current.getParent();
-      if (parent && parent.moveToTop) {
+      if (parent && parent.moveToTop && !(parent instanceof Konva.Layer)) {
         parent.moveToTop();
       }
       this.ref.current.moveToTop();

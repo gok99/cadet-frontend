@@ -7,10 +7,12 @@ import {
   ControlItem,
   EnvInstr,
   HandlerControlMarkerInstr,
+  HandlerStashMarker,
   Instr,
   InstrType,
   ObjLitInstr,
   PerformInstr,
+  ResetStashMarker,
   UnOpInstr
 } from 'js-slang/dist/cse-machine/types';
 import { Chapter } from 'js-slang/dist/langs';
@@ -1198,3 +1200,53 @@ export const defaultActiveColor = () =>
 
 export const defaultDangerColor = () =>
   CseMachine.getPrintableMode() ? Config.PrintDangerColor : Config.DangerColor;
+
+/** Convert a ControlItem to its short display text (for hover previews). */
+export function controlItemToText(item: ControlItem): string {
+  if (!isInstr(item)) {
+    if ((item as any).type === 'Literal') {
+      const v = (item as any).value;
+      return typeof v === 'string' ? `"${v}"` : String(v);
+    }
+    return astToString(item as any).trim();
+  }
+  switch (item.instrType) {
+    case InstrType.RESET: return 'return';
+    case InstrType.WHILE: return 'while';
+    case InstrType.FOR: return 'for';
+    case InstrType.ASSIGNMENT: return `asgn ${(item as AssmtInstr).symbol}`;
+    case InstrType.UNARY_OP: return (item as UnOpInstr).symbol;
+    case InstrType.BINARY_OP: return (item as BinOpInstr).symbol;
+    case InstrType.POP: return 'pop';
+    case InstrType.APPLICATION: return `call ${(item as AppInstr).numOfArgs}`;
+    case InstrType.BRANCH: return 'branch';
+    case InstrType.ENVIRONMENT: return 'env';
+    case InstrType.ARRAY_LITERAL: return `arr lit ${(item as ArrLitInstr).arity}`;
+    case InstrType.ARRAY_ACCESS: return 'arr acc';
+    case InstrType.ARRAY_ASSIGNMENT: return 'arr asgn';
+    case InstrType.ARRAY_LENGTH: return 'arr len';
+    case InstrType.MARKER: return 'mark';
+    case InstrType.SPREAD: return 'spread';
+    case InstrType.RESET_CONTROL_MARKER: return 'reset mark';
+    case InstrType.ENV_STACK_RESTORE: return 'env restore';
+    case InstrType.HANDLER_CONTROL_MARKER: {
+      const h = item as HandlerControlMarkerInstr;
+      return `handler(#${h.id})`;
+    }
+    case InstrType.RUN_WITH_HANDLER: return 'withHandle';
+    case InstrType.PERFORM: return `perform ${(item as PerformInstr).op}`;
+    default: return 'instr';
+  }
+}
+
+/** Convert a stash Value to its short display text (for hover previews). */
+export function stashItemToText(val: any): string {
+  if (val instanceof ResetStashMarker) return 'reset \u2302';
+  if (val instanceof HandlerStashMarker) return `handler(#${val.id})`;
+  if (typeof val === 'string') return `'${val}'`;
+  if (isDelimitedContinuation(val)) return 'delim cont';
+  if (isContinuation(val)) return 'continuation';
+  if (isNonGlobalFn(val)) return 'closure';
+  if (isDataArray(val)) return isSourceObject(val) ? val.toReplString() : 'pair/array';
+  return String(val);
+}

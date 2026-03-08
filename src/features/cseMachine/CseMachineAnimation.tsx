@@ -1,5 +1,5 @@
 import { DelimitedContinuation, isPerform, isWithHandle } from 'js-slang/dist/cse-machine/continuations';
-import { AppInstr, ArrLitInstr, AssmtInstr, InstrType } from 'js-slang/dist/cse-machine/types';
+import { AppInstr, ArrLitInstr, AssmtInstr, HandlerControlMarkerInstr, InstrType } from 'js-slang/dist/cse-machine/types';
 import { Node } from 'js-slang/dist/types';
 import { Layer } from 'konva/lib/Layer';
 import { Easings } from 'konva/lib/Tween';
@@ -18,6 +18,7 @@ import { ControlExpansionAnimation } from './animationComponents/ControlExpansio
 import { ControlToStashAnimation } from './animationComponents/ControlToStashAnimation';
 import { EnvironmentAnimation } from './animationComponents/EnvironmentAnimation';
 import { FrameCreationAnimation } from './animationComponents/FrameCreationAnimation';
+import { HandlerMarkerPopAnimation } from './animationComponents/HandlerMarkerPopAnimation';
 import { FunctionApplicationAnimation } from './animationComponents/FunctionApplicationAnimation';
 import { InstructionApplicationAnimation } from './animationComponents/InstructionApplicationAnimation';
 import { LookupAnimation } from './animationComponents/LookupAnimation';
@@ -28,6 +29,8 @@ import { WithHandleAnimation } from './animationComponents/WithHandleAnimation';
 import { isNode } from './components/ControlStack';
 import { Frame } from './components/Frame';
 import { ArrayValue } from './components/values/ArrayValue';
+import { ContValue } from './components/values/ContValue';
+import { ContValueMoveAnimation } from './animationComponents/ContValueMoveAnimation';
 import CseMachine from './CseMachine';
 import { Layout } from './CseMachineLayout';
 import { isBuiltInFn, isEnvEqual, isInstr, isStreamFn } from './CseMachineUtils';
@@ -59,6 +62,8 @@ export class CseAnimation {
   }
 
   private static clearAnimationComponents(): void {
+    // Remove any imperative hover overlay before animations run
+    ContValue.clearHoverOverlay();
     CseAnimation.animations.forEach(a => a.cancel());
     CseAnimation.animations.forEach(a => a.destroy());
     CseAnimation.animations.length = 0;
@@ -186,7 +191,6 @@ export class CseAnimation {
       [
         InstrType.RESET_CONTROL_MARKER,
         InstrType.ENV_STACK_RESTORE,
-        InstrType.HANDLER_CONTROL_MARKER,
         InstrType.RUN_WITH_HANDLER,
         InstrType.PERFORM,
         InstrType.OBJECT_LITERAL
@@ -488,10 +492,45 @@ export class CseAnimation {
         case InstrType.OBJECT_LITERAL:
         case InstrType.RESET_CONTROL_MARKER:
         case InstrType.ENV_STACK_RESTORE:
-        case InstrType.HANDLER_CONTROL_MARKER:
+          break;
+        case InstrType.HANDLER_CONTROL_MARKER: {
+          // Handler marker popped — find and animate the matching stash marker disappearing
+          const markerInstr = lastControlItem as HandlerControlMarkerInstr;
+          const markerId = markerInstr.id;
+          // Find the stash marker that was removed (present in previous stash but not current)
+          const prevStashItems = Layout.previousStashComponent.stashItemComponents;
+          const stashMarkerItem = prevStashItems.find(item =>
+            item.tooltip.startsWith('handler stash marker(#') &&
+            item.tooltip.includes(`(#${markerId})`)
+          );
+          CseAnimation.animations.push(
+            new HandlerMarkerPopAnimation(lastControlComponent, stashMarkerItem)
+          );
+          break;
+        }
         case InstrType.RUN_WITH_HANDLER:
         case InstrType.PERFORM:
           break;
+      }
+    }
+
+    // Check for cont values that moved from stash to frame between steps.
+    if (Layout.previousStashComponent) {
+      for (const item of Layout.previousStashComponent.stashItemComponents) {
+        const target = item.arrow?.target;
+        if (!(target instanceof ContValue) || !target._createdForStash) continue;
+        const dataId = (target.data as any)?.id;
+        if (!dataId) continue;
+        const currentCont = Layout.values.get(dataId) as ContValue | undefined;
+        if (currentCont && !Layout.stashValues.includes(currentCont)) {
+          CseAnimation.animations.push(
+            new ContValueMoveAnimation(currentCont, {
+              x: target.x(),
+              y: target.y(),
+              centerX: target.centerX
+            })
+          );
+        }
       }
     }
   }
@@ -516,6 +555,30 @@ export class CseAnimation {
     } catch {
       // Animation playback failed; clean up the snapshot gracefully
       currentAnimations.forEach(a => a.destroy());
+    } finally {
+      // Safety net: ensure all layout components are visible after animations
+      // complete (or are interrupted).  Individual destroy() methods should
+      // already handle this, but this catches any edge cases.
+      CseAnimation.restoreAllVisibility();
     }
+  }
+
+  /** Unconditionally show all current layout components that animations may have hidden. */
+  private static restoreAllVisibility() {
+    Layout.controlComponent?.stackItemComponents.forEach(item => {
+      item.ref.current?.show();
+      item.arrow?.ref.current?.show();
+    });
+    Layout.stashComponent?.stashItemComponents.forEach(item => {
+      item.ref.current?.show();
+      item.arrow?.ref.current?.show();
+    });
+    Layout.stashValues?.forEach(v => {
+      v.ref.current?.show();
+      (v as any).arrow?.()?.ref.current?.show();
+    });
+    Layout.levels?.forEach(level => {
+      level.frames.forEach(frame => frame.ref.current?.show());
+    });
   }
 }

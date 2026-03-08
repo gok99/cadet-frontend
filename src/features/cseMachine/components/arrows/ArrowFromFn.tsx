@@ -28,15 +28,45 @@ export class ArrowFromFn extends GenericArrow<FnValue | GlobalFnValue | ContValu
     const to = this.target;
     if (!to) return [];
 
+    if (from instanceof ContValue) {
+      // Draw arrow from cont circle center to the nearest point on the frame edge
+      const cx = from.centerX;
+      const cy = from.y();
+      const frameLeft = to.x();
+      const frameRight = to.x() + to.width();
+      const frameTop = to.y();
+      const frameBottom = to.y() + to.height();
+      // Clamp target to frame boundary
+      const clampedX = Math.max(frameLeft, Math.min(cx, frameRight));
+      // Determine which edge: top, bottom, left, or right
+      let tx: number, ty: number;
+      if (cy <= frameTop) {
+        // Cont is above frame — target top edge
+        tx = clampedX;
+        ty = frameTop;
+      } else if (cy >= frameBottom) {
+        // Cont is below frame — target bottom edge
+        tx = clampedX;
+        ty = frameBottom;
+      } else if (cx < frameLeft) {
+        // Cont is to the left — target left edge
+        tx = frameLeft;
+        ty = cy;
+      } else {
+        // Cont is to the right or inside — target right edge
+        tx = frameRight;
+        ty = cy;
+      }
+      const steps: StepsArray = [
+        (_x, _y) => [cx, cy],
+        (_x, _y) => [tx, ty]
+      ];
+      return steps;
+    }
+
     const steps: StepsArray = [
-      (x, y) =>
-        this.source instanceof ContValue
-          ? [x + Config.FnRadius * 2, y]
-          : [x + Config.FnRadius * 3, y],
-      (x, y) =>
-        this.source instanceof ContValue
-          ? [x, to.y() + Config.FnRadius]
-          : [x, y - Config.FnRadius * 2],
+      (x, y) => [x + Config.FnRadius * 3, y],
+      (x, y) => [x, y - Config.FnRadius * 2],
       (x, y) => [to.x() + (from.x() < to.x() ? 0 : to.width()), y]
     ];
 
